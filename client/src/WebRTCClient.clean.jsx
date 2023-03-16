@@ -11,11 +11,8 @@ const WebRTCClient = () => {
 	const localVideoRef = React.useRef(null);
 	const remoteVideoRef = React.useRef(null);
 
-	// TEMPORARY, FOR TESTING
-	const [testOffer, setTestOffer] = React.useState(null);
-	const [testAnswer, setTestAnswer] = React.useState(null);
-	const [testOfferCandidates, setTestOfferCandidates] = React.useState([]);
-	const [testAnswerCandidates, setTestAnswerCandidates] = React.useState([]);
+	const [offer, setOffer] = React.useState(null);
+	const [answer, setAnswer] = React.useState(null);
 
 	useEffect(() => {
 		createPeerConnection();
@@ -42,7 +39,6 @@ const WebRTCClient = () => {
 		//  Push tracks from local stream to peer connection
 		if (localStream) {
 			localStream.getTracks().forEach((track) => {
-				console.log("local ontrack", track);
 				pc.addTrack(track, localStream);
 			});
 		} else {
@@ -51,11 +47,10 @@ const WebRTCClient = () => {
 			);
 		}
 
-		//  Pull tracks from remote stream, add to video stream
+		//  Pull tracks from remote stream, add to video stream in DOM
 		if (remoteStream) {
 			pc.ontrack = async (event) => {
 				event.streams[0].getTracks().forEach((track) => {
-					console.log("remote ontrack", track);
 					remoteStream.addTrack(track);
 				});
 			};
@@ -64,10 +59,6 @@ const WebRTCClient = () => {
 				"Remote stream is not available, please check with your peer connection"
 			);
 		}
-
-		// //  Update video streams in the DOM
-		// localVideoRef.current.srcObject = localStream;
-		// remoteVideoRef.current.srcObject = remoteStream;
 
 		setPeerConnection(pc);
 	};
@@ -79,14 +70,11 @@ const WebRTCClient = () => {
 
 		peerConnection.onicecandidate = (event) => {
 			if (event.candidate) {
-				const candidate = event.candidate.toJSON();
-				// console.log(event + " candidate", candidate);
-
-				//  store candidate in database, ref to current user based on peerType (caller or receiver)
+				//  when ice candidate is received, we'll update the offer and answer sdp and then send it back to the caller and callee
 				if (peerType === "caller") {
-					setTestOfferCandidates([...testOfferCandidates, candidate]);
+					setOffer(peerConnection?.localDescription);
 				} else if (peerType === "receiver") {
-					setTestAnswerCandidates([...testAnswerCandidates, candidate]);
+					setAnswer(peerConnection?.localDescription);
 				} else {
 					throw new Error(
 						"Peer type is not available, please look into generating ice candidate"
@@ -103,26 +91,11 @@ const WebRTCClient = () => {
 
 		peerConnection.close();
 		setInCall(false);
-		setTestOffer(null);
-		setTestAnswer(null);
-		setTestOfferCandidates([]);
-		setTestAnswerCandidates([]);
+		setOffer(null);
+		setAnswer(null);
 
 		createPeerConnection();
 	};
-
-	//	update offer and answer sdp when ice candidate is received from stun server
-	useEffect(() => {
-		if (testOfferCandidates) {
-			setTestOffer(peerConnection?.localDescription);
-		}
-	}, [testOfferCandidates]);
-
-	useEffect(() => {
-		if (testAnswerCandidates) {
-			setTestAnswer(peerConnection?.localDescription);
-		}
-	}, [testAnswerCandidates]);
 
 	// CALLER SIDE, (offerer)
 
@@ -143,13 +116,12 @@ const WebRTCClient = () => {
 
 		// TODO store offer in database, ref to current user
 
-		// TESTING
-		setTestOffer(offer);
+		setOffer(offer);
 	};
 
 	// CALLEE SIDE, (answerer)
 
-	// TODO call this function once offer is received from caller and answer is created and sent back to caller
+	// TODO call this function once offer is received from caller to calle and answer is created and sent back to caller
 	const onAnswer = async (answer) => {
 		if (!peerConnection) {
 			throw new Error("Peer connection is not available");
@@ -163,29 +135,23 @@ const WebRTCClient = () => {
 		const answerDescription = new RTCSessionDescription(answer);
 		await peerConnection.setRemoteDescription(answerDescription);
 		setInCall(true);
-
-		// TODO listen for ice candidates from receiver and add to peer connection
-		//  once ice candidate is received (via Socket), call "setIceCandidate"
-
-		// DONT NEED THIS, Because :
-		//	when ice candidate is received, we'll update the offer and answer sdp and then send it back to the caller and callee
 	};
 
 	// ANSWERER SIDE, (answerer)
 
 	const getCallOffer = async (callId) => {
 		//  TODO get offer from database, ref to callId
-		return JSON.parse(testOffer);
+		return JSON.parse(offer);
 	};
 
 	const answerCall = async (callId) => {
-		// TODO get offer from database, ref to callId
-		// TODO get ice candidates from database, ref to callId
-		// TODO set ice candidates to peer connection
-		// TODO set offer to peer connection
-		// TODO create answer
-		// TODO set answer to peer connection
-		// TODO store answer in database, ref to callId
+		//* get offer from database, ref to callId (offer contains ice candidates)
+		//// get ice candidates from database, ref to callId
+		//// set ice candidates to peer connection
+		//* set offer to peer connection as remoteDescription
+		//* create answer which is localDescription
+		//* set answer to peer connection as localDescription
+		//* store answer in database, ref to callId (to be used by caller to set remoteDescription)
 
 		await generateIceCandidate("receiver");
 
@@ -204,11 +170,7 @@ const WebRTCClient = () => {
 		console.log("answer created", answer);
 		// TODO store answer in database, ref to callId
 
-		// TESTING
-		setTestAnswer(answer);
-
-		// TODO listen for ice candidates from caller and add to peer connection
-		//  once ice candidate is received (via Socket), call "setIceCandidate"
+		setAnswer(answer);
 	};
 
 	// DEBUG
@@ -286,76 +248,25 @@ const WebRTCClient = () => {
 				<div>
 					<div>Offer</div>
 					<textarea
-						value={testOffer != null ? JSON.stringify(testOffer) : ""}
-						onChange={(e) => setTestOffer(e.target.value)}
+						value={offer != null ? JSON.stringify(offer) : ""}
+						onChange={(e) => setOffer(e.target.value)}
 						rows="10"
 						cols="50"
 					/>
 				</div>
-				{/* ON ANSWER */}
+				{/* ANSWER */}
 				<div>
 					<div>Answer</div>
 					<textarea
-						value={testAnswer != null ? JSON.stringify(testAnswer) : ""}
-						onChange={(e) => setTestAnswer(e.target.value)}
+						value={answer != null ? JSON.stringify(answer) : ""}
+						onChange={(e) => setAnswer(e.target.value)}
 						rows="10"
 						cols="50"
 					/>
 					<div>
-						<button onClick={() => onAnswer(JSON.parse(testAnswer))}>
+						<button onClick={() => onAnswer(JSON.parse(answer))}>
 							on Answer
 						</button>
-					</div>
-				</div>
-				{/* CANDIDATES */}
-				<div
-					style={{
-						display: "flex",
-						flexDirection: "row",
-						justifyContent: "space-around",
-						alignItems: "center",
-						margin: "2em",
-					}}
-				>
-					<div>
-						<div>Offer Candidates</div>
-						<textarea
-							value={
-								testOfferCandidates != null
-									? JSON.stringify(testOfferCandidates)
-									: ""
-							}
-							onChange={(e) =>
-								setTestOfferCandidates(JSON.parse(e.target.value))
-							}
-							rows="10"
-							cols="50"
-						/>
-						<div>
-							<button onClick={() => setIceCandidate(testOfferCandidates)}>
-								set Ice Candidate
-							</button>
-						</div>
-					</div>
-					<div>
-						<div>Answer Candidates</div>
-						<textarea
-							value={
-								testAnswerCandidates != null
-									? JSON.stringify(testAnswerCandidates)
-									: ""
-							}
-							onChange={(e) =>
-								setTestAnswerCandidates(JSON.parse(e.target.value))
-							}
-							rows="10"
-							cols="50"
-						/>
-						<div>
-							<button onClick={() => setIceCandidate(testAnswerCandidates)}>
-								set Ice Candidate
-							</button>
-						</div>
 					</div>
 				</div>
 			</div>

@@ -25,7 +25,7 @@ const WebRTCClientUgly = () => {
 		//	setup local streams
 		const localStream = await navigator.mediaDevices.getUserMedia({
 			video: true,
-			audio: false,
+			audio: true,
 		});
 
 		//  Update video streams in the DOM
