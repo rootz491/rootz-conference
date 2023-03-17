@@ -7,6 +7,7 @@ import React, { useEffect } from "react";
 const WebRTCClient = () => {
 	const [peerConnection, setPeerConnection] = React.useState(null);
 	const [inCall, setInCall] = React.useState(false);
+	const [waitingForPeer, setWaitingForPeer] = React.useState(false);
 
 	const localVideoRef = React.useRef(null);
 	const remoteVideoRef = React.useRef(null);
@@ -84,12 +85,12 @@ const WebRTCClient = () => {
 		};
 	};
 
-	const hangup = () => {
+	const hangup = async () => {
 		if (!peerConnection) {
 			throw new Error("Peer connection is not available");
 		}
 
-		peerConnection.close();
+		await peerConnection.close();
 		setInCall(false);
 		setOffer(null);
 		setAnswer(null);
@@ -184,6 +185,28 @@ const WebRTCClient = () => {
 
 		peerConnection.addEventListener("connectionstatechange", () => {
 			console.log(`Connection state change: ${peerConnection.connectionState}`);
+
+			// put below logic somewhere else
+			switch (peerConnection.connectionState) {
+				case "connecting":
+					setWaitingForPeer(true);
+					break;
+
+				case "connected":
+					setInCall(true);
+					setWaitingForPeer(false);
+					break;
+
+				case "disconnected":
+					// hangup();
+					peerConnection.close();
+					setInCall(false);
+					setOffer(null);
+					setAnswer(null);
+
+					createPeerConnection();
+					break;
+			}
 		});
 
 		peerConnection.addEventListener("signalingstatechange", () => {
@@ -204,6 +227,13 @@ const WebRTCClient = () => {
 				gap: "2em",
 			}}
 		>
+			<h1>{peerConnection?.connectionState ?? "no state"}</h1>
+
+			{waitingForPeer && (
+				<center>
+					<h2> waiting for peer to respond... </h2>
+				</center>
+			)}
 			<div
 				style={{
 					display: "flex",
