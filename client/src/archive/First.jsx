@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import TestSocket from "./components/testSocket";
-import { useSocket } from "./contexts/socket";
-import { useWebRTC } from "./contexts/webRTC";
+import TestSocket from "../components/testSocket";
+import { useSocket } from "../contexts/socket";
+import { useWebRTC } from "../contexts/webRTC";
 
 function App() {
 	const { createRoom, joinRoom, openUserMedia } = useWebRTC();

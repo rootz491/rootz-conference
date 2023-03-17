@@ -198,7 +198,6 @@ const WebRTCClient = () => {
 					break;
 
 				case "disconnected":
-					// hangup();
 					peerConnection.close();
 					setInCall(false);
 					setOffer(null);

@@ -13,10 +13,4 @@ api.interceptors.request.use((config) => {
 	return config;
 });
 
-// OLD BACKEND
-// console.log("API", config.oldBackend.baseUrl);
-export const oldBackend = axios.create({
-	baseURL: `${config.oldBackend.baseUrl}`,
-});
-
 export default api;

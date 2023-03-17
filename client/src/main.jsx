@@ -1,21 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./First";
-// import WebRTCClient from "./WebRTCClient.ugly";
-import WebRTCClient from "./WebRTCClient.clean";
-import SocketProvider from "./contexts/socket";
-import WebRTCProvider from "./contexts/webRTC";
-import CallMenu from "./components/callMenu";
-import VideoPlayer from "./components/videoPlayer";
-import SimplePeerClient from "./simplePeerClient";
+import Home from "./Home";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
 	<React.StrictMode>
 		{/* <SocketProvider> */}
 		{/* <WebRTCProvider> */}
-		{/* <App /> */}
-		<WebRTCClient />
-		{/* <SimplePeerClient /> */}
+		<Home />
 		{/* </WebRTCProvider>
 		</SocketProvider> */}
 	</React.StrictMode>
