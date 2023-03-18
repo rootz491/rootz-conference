@@ -11,8 +11,8 @@ router.get("/", (req, res) => {
 router.get("/connections", (req, res) => {
 	res.json({
 		connections: sockets.map((connection) => ({
-			id: connection.socketId,
-			user: users.find((user) => user.id === connection.userId),
+			...connection,
+			username: users.find((user) => user.id === connection.userId).username,
 		})),
 		total: sockets.length,
 	});

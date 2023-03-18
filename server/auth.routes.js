@@ -43,7 +43,7 @@ router.post("/login", (req, res) => {
 		res.json({ token });
 	} catch (error) {
 		console.log(error);
-		res.json({ error: "Something went wrong" });
+		res.status(500).json({ error: "Something went wrong" });
 	}
 });
 
@@ -51,5 +51,5 @@ module.exports = router;
 
 module.exports = {
 	router,
-	users
-}
+	users,
+};

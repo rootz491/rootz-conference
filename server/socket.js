@@ -1,5 +1,6 @@
 const { isSocketAuthenticated } = require("./middleware");
 const { v4: uuidv4 } = require("uuid");
+const { users } = require("./auth.routes");
 
 const sockets = [];
 
@@ -7,9 +8,7 @@ const webRTCRooms = [];
 
 const init = (io) => {
 	try {
-		// io.use(isSocketAuthenticated).on("connection", (socket) => {
-		io.on("connection", (socket) => {
-			// /*
+		io.use(isSocketAuthenticated).on("connection", (socket) => {
 			try {
 				console.log("New client connected", socket.id);
 
@@ -19,78 +18,47 @@ const init = (io) => {
 					userId: socket?.userInfo?.id,
 				});
 
-				socket.on("test", (data) => {
-					console.log(data);
-					socket.emit("test", "Hello from server!");
+				// when someone becomes active, emit to his socket about his active status
+				socket.emit("me", {
+					socketId: socket.id,
+					userId: socket?.userInfo?.id,
+					username:
+						users.find((user) => user.id === socket?.userInfo?.id)?.username ??
+						"Unknown",
 				});
 
-				// WebRTC events
-
-				socket.on("create-room", (roomWithOffer) => {
-					console.log("create-room");
-					// create a new room with a unique id
-					webRTCRooms.push({
-						roomId: uuidv4(),
-						owner: {
-							userId: socket?.userInfo?.id,
-							socketId: socket.id,
-						},
-						...roomWithOffer,
-					});
-
-					// send the room to all clients except the one that created it
-					socket.broadcast.emit(
-						"room-created",
-						webRTCRooms[webRTCRooms.length - 1]
-					);
+				//	when someone becomes available, broadcast to all users
+				socket.broadcast.emit("available", {
+					socketId: socket.id,
+					userId: socket?.userInfo?.id,
+					username:
+						users.find((user) => user.id === socket?.userInfo?.id)?.username ??
+						"Unknown",
 				});
 
-				socket.on("join-room", (roomWithAnswer) => {
-					// console.log("join-room", roomWithAnswer);
-					// find the room with the given id
-					const room = webRTCRooms.findIndex(
-						(room) => room.roomId === roomWithAnswer?.roomId
-					);
+				//	Test event
+				socket.on("test-client", () => {
+					console.log("Test event received");
+					socket.emit("test-server", "Hello from server");
+				});
 
-					const updatedRoom = {
-						...webRTCRooms[room],
-						...roomWithAnswer,
-						joinee: {
-							userId: socket?.userInfo?.id,
-							socketId: socket.id,
-						},
-					};
-
-					// if the room exists, update the room with the answer
-					if (room !== -1) {
-						//	remove the room with duplicate id from array
-						webRTCRooms.splice(
-							webRTCRooms.findIndex(
-								(room) => room.roomId === roomWithAnswer?.roomId
-							),
-							1
-						);
-
-						// add the updated room to the array
-						webRTCRooms.push(updatedRoom);
-
-						// notify owner that the room is ready
-						socket
-							.to(roomWithAnswer?.owner?.socketId)
-							.emit("room-joined", updatedRoom);
-
-						// notify joinee that the room is ready
-						socket.emit("room-joined", updatedRoom);
+				//	Transfer call "data" to another user
+				socket.on("call", (data) => {
+					console.log("Call event received");
+					if (data?.meta?.callee?.socketId == null) {
+						console.log("Callee socket id not found");
+						return;
 					}
+					socket.to(data.meta.callee.socketId).emit("call", data);
 				});
 
-				//	send ice candidate from joinee to owner
-				socket.on("send-ice-candidate", (candidateData) => {
-					const ownerSocketId = candidateData?.ownerSocketId;
-
-					socket
-						.to(ownerSocketId)
-						.emit("receive-ice-candidate", candidateData?.candidate);
+				socket.on("accept-call", (data) => {
+					console.log("accept-Call event received");
+					if (data?.meta?.caller?.socketId == null) {
+						console.log("caller socket id not found");
+						return;
+					}
+					socket.to(data.meta.caller.socketId).emit("accept-call", data);
 				});
 
 				socket.on("disconnect", () => {
@@ -106,25 +74,6 @@ const init = (io) => {
 				console.log(error);
 				socket.disconnect(true);
 			}
-			// */
-
-			// socket.emit("me", socket.id);
-
-			// socket.on("callUser", ({ userToCall, signalData, from, name }) => {
-			// 	io.to(userToCall).emit("callUser", {
-			// 		signal: signalData,
-			// 		from,
-			// 		name,
-			// 	});
-			// });
-
-			// socket.on("answerCall", (data) => {
-			// 	io.to(data.to).emit("callAccepted", data.signal);
-			// });
-
-			// socket.on("disconnect", () => {
-			// 	socket.broadcast.emit("callEnded");
-			// });
 		});
 	} catch (error) {
 		console.log(error);
