@@ -1,6 +1,6 @@
 import React, { useContext, createContext, useState, useEffect } from "react";
-import { useSocket } from "./socket";
-import { answerMade, callUser, sendIceCandidate } from "./socket/emit";
+import { useSocket } from "../contexts/socket";
+import { answerMade, callUser, sendIceCandidate } from "../contexts/socket/emit";
 
 const WebRTCContext = createContext({});
 

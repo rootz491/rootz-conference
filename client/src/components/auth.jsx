@@ -9,49 +9,57 @@ const Auth = () => {
 	const [token, setToken] = useState(null);
 
 	useEffect(() => {
-		if (token != null) {
-			const t = localStorage.getItem("token");
-			setToken(t);
-		}
+		const t = localStorage.getItem("token");
+		setToken(t);
 	}, []);
 
+	const logout = () => {
+		localStorage.removeItem("token");
+		setToken(null);
+	};
+
 	const login = async () => {
-		const res = await api("/auth/login", {
+		const res = await api.post("/auth/login", {
 			username,
 			password,
 		});
 		if (res.status == 200 && res.data?.token) {
 			localStorage.setItem("token", res.data?.token);
+			setToken(res.data?.token);
 		} else {
 			alert(res.data?.error ?? "something's broken!");
 		}
 	};
 
-	return (
-		<div>
-			<center>
-				<strong>User is Authenticated!</strong>
-			</center>
-		</div>
-	);
-
-	return (
-		<div>
-			<input
-				type="text"
-				placeholder="username"
-				value={username}
-				onChange={(e) => setUsername(e.target.value)}
-			/>
-			<input
-				type="password"
-				placeholder="password"
-				value={password}
-				onChange={(e) => setPassword(e.target.value)}
-			/>
-			<button onClick={login}>login</button>
-		</div>
-	);
+	if (token)
+		return (
+			<div>
+				<center>
+					<strong>User is Authenticated!</strong>
+				</center>
+				<center>
+					<button onClick={logout}>logout</button>
+				</center>
+			</div>
+		);
+	else
+		return (
+			<div>
+				<input
+					type="text"
+					placeholder="username"
+					value={username}
+					onChange={(e) => setUsername(e.target.value)}
+				/>
+				<input
+					type="password"
+					placeholder="password"
+					value={password}
+					onChange={(e) => setPassword(e.target.value)}
+				/>
+				<button onClick={login}>login</button>
+			</div>
+		);
 };
 
 export default Auth;

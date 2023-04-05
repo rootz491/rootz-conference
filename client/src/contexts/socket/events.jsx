@@ -1,7 +1,7 @@
 import { socket } from "./socket";
 
 export const socketEvents = ({ setValue }) => {
-	socket.on("test", (data) => {
+	socket.on("test-server", (data) => {
 		console.log("test event received", data);
 		setValue((prev) => ({
 			...prev,
@@ -9,30 +9,35 @@ export const socketEvents = ({ setValue }) => {
 		}));
 	});
 
-	socket.on("room-created", (room) => {
+	socket.on("available", (data) => {
+		console.log("someone became active", data);
 		setValue((prev) => ({
 			...prev,
-			rooms: [...(prev?.rooms ?? []), room],
+			availableUser: data,
 		}));
 	});
 
-	socket.on("room-joined", async (room) => {
-		console.log("room joined", room);
+	socket.on("me", (data) => {
+		console.log("current user's info", data);
 		setValue((prev) => ({
 			...prev,
-			latestRoom: room,
-			// rooms: [...(prev?.rooms ?? []), room],
+			me: data,
 		}));
 	});
 
-	socket.on("receive-ice-candidate", async (incomingIceCandidate) => {
-		console.log("ice candidate received", incomingIceCandidate);
+	socket.on("call", (data) => {
+		console.log("call received", data);
 		setValue((prev) => ({
 			...prev,
-			latestRoom: {
-				...prev.latestRoom,
-				iceCandidates: [...(prev?.iceCandidates ?? []), incomingIceCandidate],
-			},
+			call: data,
+		}));
+	});
+
+	socket.on("accept-call", (data) => {
+		console.log("call accepted", data);
+		setValue((prev) => ({
+			...prev,
+			call: data,
 		}));
 	});
 };

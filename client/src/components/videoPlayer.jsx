@@ -1,10 +1,12 @@
-// TODO remove comments with TESTING
-
 // TODO When onAnswer is called, we need to send a message to receiver let them know that call has begin (change state of call to true) [via socket]
 // TODO When hangup is called, we need to send a message to receiver or sender to let them know that call has ended (change state of call to false) [via socket]
 import React, { useEffect } from "react";
+import { useSocket } from "../contexts/socket";
+import { acceptCallEmit, callEmit } from "../contexts/socket/emit";
 
-const VideoPlayer = () => {
+const VideoPlayer = ({ userMeta, caller, callee }) => {
+	const { value } = useSocket();
+
 	const [peerConnection, setPeerConnection] = React.useState(null);
 	const [inCall, setInCall] = React.useState(false);
 	const [waitingForPeer, setWaitingForPeer] = React.useState(false);
@@ -15,9 +17,29 @@ const VideoPlayer = () => {
 	const [offer, setOffer] = React.useState(null);
 	const [answer, setAnswer] = React.useState(null);
 
+	let stack = 1;
+
+	// when call is answered, we need to set the answer to the state
 	useEffect(() => {
-		createPeerConnection();
+		if (value?.call?.answer && ++stack === 2) {
+			setAnswer(value.call.answer);
+			console.log("answer from callee", value.call.answer);
+			onAnswer(value.call.answer);
+		}
+	}, [value]);
+
+	useEffect(() => {
+		driver();
 	}, []);
+
+	const driver = async () => {
+		const pc = await createPeerConnection();
+		if (caller === true) {
+			startCall(pc);
+		} else if (callee === true) {
+			answerCall(pc);
+		}
+	};
 
 	const createPeerConnection = async () => {
 		//	setup local streams
@@ -62,19 +84,44 @@ const VideoPlayer = () => {
 		}
 
 		setPeerConnection(pc);
+		return pc;
 	};
 
-	const generateIceCandidate = async (peerType) => {
+	const generateIceCandidate = async (peerConnection, peerType) => {
 		if (!peerConnection) {
 			throw new Error("Peer connection is not available");
 		}
 
 		peerConnection.onicecandidate = (event) => {
 			if (event.candidate) {
+				console.log("ice candidate", event.candidate);
 				//  when ice candidate is received, we'll update the offer and answer sdp and then send it back to the caller and callee
 				if (peerType === "caller") {
+					// 	if (
+					// 		peerConnection.connectionState === "new" &&
+					// 		peerConnection.iceGatheringState === "gathering"
+					// 	) {
+					// 	console.log("sending the offer with ice candidates!");
+					// 	callEmit({
+					// 		meta: userMeta,
+					// 		offer: peerConnection?.localDescription,
+					// 	});
+					// }
 					setOffer(peerConnection?.localDescription);
 				} else if (peerType === "receiver") {
+					// if (
+					// 	peerConnection.connectionState === "new" &&
+					// 	peerConnection.iceGatheringState === "gathering"
+					// ) {
+					// console.log("sending the answer with ice candidates!");
+					// acceptCallEmit({
+					// 	...userMeta,
+					// 	answer: {
+					// 		sdp: peerConnection?.localDescription?.sdp,
+					// 		type: peerConnection?.localDescription?.type,
+					// 	},
+					// });
+					// }
 					setAnswer(peerConnection?.localDescription);
 				} else {
 					throw new Error(
@@ -100,12 +147,12 @@ const VideoPlayer = () => {
 
 	// CALLER SIDE, (offerer)
 
-	const startCall = async () => {
+	const startCall = async (peerConnection) => {
 		if (!peerConnection) {
 			throw new Error("Peer connection is not available");
 		}
 
-		await generateIceCandidate("caller");
+		await generateIceCandidate(peerConnection, "caller");
 
 		const offerDescription = await peerConnection.createOffer();
 		await peerConnection.setLocalDescription(offerDescription);
@@ -134,18 +181,34 @@ const VideoPlayer = () => {
 		}
 
 		const answerDescription = new RTCSessionDescription(answer);
+
+		console.log("setting remote description", answerDescription);
+
 		await peerConnection.setRemoteDescription(answerDescription);
 		setInCall(true);
+
+		console.log("remote description set");
 	};
 
 	// ANSWERER SIDE, (answerer)
 
-	const getCallOffer = async (callId) => {
-		//  TODO get offer from database, ref to callId
-		return JSON.parse(offer);
+	const getCallOffer = async () => {
+		const res = confirm(
+			`You received a call from ${
+				userMeta?.meta?.caller?.name ?? "stranger"
+			}. Do you want to answer the call?`
+		);
+		if (!res) {
+			return;
+		}
+		if (userMeta?.offer == null) {
+			alert("Offer is not available, please try again later");
+			return;
+		}
+		return userMeta?.offer;
 	};
 
-	const answerCall = async (callId) => {
+	const answerCall = async (peerConnection) => {
 		//* get offer from database, ref to callId (offer contains ice candidates)
 		//// get ice candidates from database, ref to callId
 		//// set ice candidates to peer connection
@@ -154,9 +217,9 @@ const VideoPlayer = () => {
 		//* set answer to peer connection as localDescription
 		//* store answer in database, ref to callId (to be used by caller to set remoteDescription)
 
-		await generateIceCandidate("receiver");
+		await generateIceCandidate(peerConnection, "receiver");
 
-		const offer = await getCallOffer(callId);
+		const offer = await getCallOffer();
 		const offerDescription = new RTCSessionDescription(offer);
 		await peerConnection.setRemoteDescription(offerDescription);
 
@@ -181,6 +244,27 @@ const VideoPlayer = () => {
 			console.log(
 				`ICE gathering state changed: ${peerConnection.iceGatheringState}`
 			);
+			if (peerConnection.iceGatheringState === "complete" && ++stack === 2) {
+				if (caller === true) {
+					callEmit({
+						meta: userMeta,
+						offer: {
+							sdp: peerConnection?.localDescription?.sdp,
+							type: peerConnection?.localDescription?.type,
+						},
+					});
+					console.log("sending the offer with ice candidates!");
+				} else if (callee === true) {
+					acceptCallEmit({
+						...userMeta,
+						answer: {
+							sdp: peerConnection?.localDescription?.sdp,
+							type: peerConnection?.localDescription?.type,
+						},
+					});
+					console.log("sending the answer with ice candidates!");
+				}
+			}
 		});
 
 		peerConnection.addEventListener("connectionstatechange", () => {

@@ -1,19 +1,15 @@
 import { socket } from "./socket";
 
 export const testEmit = () => {
-	socket.emit("test", "Hello World");
+	socket.emit("test-client");
 };
 
-// Client side emit
-export const callUser = (offer) => {
-	socket.emit("create-room", offer);
+export const callEmit = (data) => {
+	socket.emit("call", data);
 };
 
-export const answerMade = (answer) => {
-	socket.emit("join-room", answer);
+export const acceptCallEmit = (data) => {
+	socket.emit("accept-call", data);
 };
 
-export const sendIceCandidate = (candidate) => {
-	socket.emit("send-ice-candidate", candidate);
-};
 //  any component can import test() and call it to emit a test event
